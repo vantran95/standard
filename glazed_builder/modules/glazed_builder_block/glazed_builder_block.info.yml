@@ -1,0 +1,10 @@
+name: Glazed Builder Block Type
+description: Custom Block Type with Glazed Builder Drag and Drop Editing.
+core: 8.x
+type: module
+package: Glazed Builder
+
+dependencies:
+  - drupal:text
+  - drupal:node
+  - glazed_builder:glazed_builder
