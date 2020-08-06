@@ -2,6 +2,7 @@
 
 namespace Drupal\glazed_builder\Service;
 
+use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Url;
 use Drupal\file\Entity\File;
 
@@ -97,9 +98,9 @@ class UploadHandler
             // is enabled, set to 0 to disable chunked reading of files:
             'readfile_chunk_size' => 10 * 1024 * 1024, // 10 MiB
             // Defines which files can be displayed inline when downloaded:
-            'inline_file_types' => '/\.(gif|jpe?g|png)$/i',
+            'inline_file_types' => '/\.(gif|jpe?g|png|svg)$/i',
             // Defines which files (based on their names) are accepted for upload:
-            'accept_file_types' => '/\.(gif|jpe?g|png)$/i',
+            'accept_file_types' => '/\.(gif|jpe?g|png|svg)$/i',
             // The php.ini settings upload_max_filesize and post_max_size
             // take precedence over the following max_file_size setting:
             'max_file_size' => null,
@@ -107,7 +108,7 @@ class UploadHandler
             // The maximum number of files for the upload directory:
             'max_number_of_files' => null,
             // Defines which files are handled as image files:
-            'image_file_types' => '/\.(gif|jpe?g|png)$/i',
+            'image_file_types' => '/\.(gif|jpe?g|png|svg)$/i',
             // Use exif_imagetype on all files to correct file extensions:
             'correct_image_extensions' => false,
             // Image resolution restrictions:
@@ -1051,7 +1052,7 @@ class UploadHandler
         $this->destroy_image_object($file_path);
     }
 
-    protected function handle_file_upload($uploaded_file, $name, $size, $type, $content_range) {
+    protected function handle_file_upload($uploaded_file, $name, $size, $type, $content_range, $error = NULL, $index = NULL) {
         $file = new \stdClass();
         $file->name = $this->get_file_name($name, $content_range);
         $file->size = $this->fix_integer_overflow((int)$size);
@@ -1060,6 +1061,7 @@ class UploadHandler
             $filename = $this->get_file_name($name, $content_range);
             $data = file_get_contents($uploaded_file);
             $file = file_save_data($data, $this->getUploadDirectory() . '/' . $filename);
+            $this->options['fileId'] = $file->id();
             return file_create_url($file->get('uri')->value);
         }
         return FALSE;
@@ -1295,13 +1297,16 @@ class UploadHandler
                         $file_name ? $file_name : $upload['name'][$index],
                         $size ? $size : $upload['size'][$index],
                         $upload['type'][$index],
+                        $content_range,
                         $upload['error'][$index],
-                        $index,
-                        $content_range
+                        $index
                     );
 
                     if($file) {
-                      $files[] = $file;
+                      $files[] = array(
+                        'fileUrl' => $file,
+                        'fileId' => $this->options['fileId'],
+                      );
                     }
                 }
             } else {
@@ -1318,7 +1323,10 @@ class UploadHandler
                 );
 
                 if ($file) {
-                  $files[] = $file;
+                  $files[] = array(
+                    'fileUrl' => $file,
+                    'fileId' => $this->options['fileId'],
+                  );
                 }
             }
         }
@@ -1357,9 +1365,12 @@ class UploadHandler
     }
 
     protected function getUploadDirectory() {
-        $default_scheme = \Drupal::config('system.file')->get('default_scheme');
+        // @todo support private file scheme in ac_drupal.js, it's currently not working
+        // $default_scheme = \Drupal::config('system.file')->get('default_scheme');
+        $default_scheme ='public';
         $directory = $default_scheme . '://glazed_builder_images';
-        file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+        \Drupal::service('file_system')
+          ->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY);
 
         return $directory;
     }

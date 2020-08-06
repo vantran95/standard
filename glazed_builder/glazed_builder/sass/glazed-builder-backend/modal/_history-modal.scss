@@ -1,0 +1,104 @@
+@charset "UTF-8";
+
+.modal-open {
+  &.history-modal-open {
+    overflow: auto;
+  }
+}
+
+.history.modal {
+  overflow: auto;
+  z-index: 5000;
+  &:before {
+    // z-index: 5000;
+    position: fixed;
+    top: 100px;
+    left: 50px;
+    right: auto;
+    bottom: auto;
+    background: none;
+    opacity: 1;
+  }
+  .modal-dialog {
+    margin-right: 0;
+    margin-left: 0;
+    .modal-content {
+      width: 400px;
+      margin-left: 60px;
+      .modal-header {
+        background: #0180ef url('../images/glazed-logo-white.svg') no-repeat left top;
+        background-size: 42px;
+        color:white;
+        padding: 9px;
+        cursor: move;
+        h4 {
+          padding-left: 35px;
+          margin: 0;
+          color: #fff;
+          font-weight: 400;
+        }
+      }
+      .modal-body {
+        min-height: 300px;
+        max-height: 430px;
+        overflow: auto;
+        ul {
+          padding: 0;
+          li {
+            button {
+              width: 100%;
+              color: #4c5866;
+              background: #eee;
+              margin-bottom: 10px;
+              font-weight: 600;
+              font-size: 16px;
+              border: 0;
+              text-align: left;
+              padding: 12px;
+              border-radius: 5px;
+            }
+            &.active {
+              button {
+                background-color: #8BC34A;
+                color: #fff;
+              }
+            }
+          }
+        }
+      }
+      .modal-footer {
+        padding: 0;
+        text-align: left;
+        border: 0;
+        .operations {
+          display: -webkit-box;   
+          display: -moz-box;  
+          display: -ms-flexbox; 
+          display: -webkit-flex; 
+          display: flex;
+          -webkit-flex-direction: row;
+          -moz-flex-direction: row;
+          flex-direction: row;
+          justify-content: space-between;
+          flex-wrap: nowrap;
+          button {
+            flex-grow: 1;
+            color: #fff;
+            padding: 8.5px;
+            border: 0;
+            &.history-modal-close {
+              background: #ef5555;
+            }
+            &.history-modal-undo {
+              background: #FF6F00;
+            }
+            &.history-modal-redo {
+              background: #2196F3;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+}

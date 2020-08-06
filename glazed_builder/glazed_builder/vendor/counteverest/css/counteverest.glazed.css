@@ -13,6 +13,7 @@
 	padding-bottom: 20px;
 }
 
+.ce-countdown--theme-1 .ce-years,
 .ce-countdown--theme-1 .ce-days,
 .ce-countdown--theme-1 .ce-hours,
 .ce-countdown--theme-1 .ce-minutes,
@@ -28,6 +29,7 @@
 	width: 150px;
 }
 
+.ce-countdown--theme-1 .ce-years-label,
 .ce-countdown--theme-1 .ce-days-label,
 .ce-countdown--theme-1 .ce-hours-label,
 .ce-countdown--theme-1 .ce-minutes-label,
@@ -39,6 +41,7 @@
 }
 
 @media all and (max-width: 540px) {
+  .ce-countdown--theme-1 .ce-years,
 	.ce-countdown--theme-1 .ce-days,
 	.ce-countdown--theme-1 .ce-hours,
 	.ce-countdown--theme-1 .ce-minutes,
@@ -69,6 +72,7 @@
 	margin: 0;
 }
 
+.ce-countdown--theme-6 .ce-years,
 .ce-countdown--theme-6 .ce-days,
 .ce-countdown--theme-6 .ce-hours,
 .ce-countdown--theme-6 .ce-minutes,
@@ -82,6 +86,7 @@
 	margin-bottom: 10px;
 }
 
+html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-years,
 html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-days,
 html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-hours,
 html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-minutes,
@@ -144,7 +149,8 @@ html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-flip-wrap .ce-flip-back {
 		font-size: 12px;
 	}
 
-    .ce-countdown--theme-6 .ce-days,
+  .ce-countdown--theme-6 .ce-years,
+  .ce-countdown--theme-6 .ce-days,
 	.ce-countdown--theme-6 .ce-hours,
 	.ce-countdown--theme-6 .ce-minutes,
 	.ce-countdown--theme-6 .ce-seconds {
@@ -333,6 +339,7 @@ html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-flip-wrap .ce-flip-back {
 .ce-countdown--theme-10 .ce-unit-wrap .ce-seconds-digit,
 .ce-countdown--theme-10 .ce-unit-wrap .ce-minutes-digit,
 .ce-countdown--theme-10 .ce-unit-wrap .ce-hours-digit,
+.ce-countdown--theme-10 .ce-unit-wrap .ce-years-digit,
 .ce-countdown--theme-10 .ce-unit-wrap .ce-days-digit {
     display:none;
 }
@@ -858,6 +865,7 @@ html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-flip-wrap .ce-flip-back {
 	width: 100px;
 }
 
+.ce-countdown--theme-12 .ce-years-label,
 .ce-countdown--theme-12 .ce-days-label,
 .ce-countdown--theme-12 .ce-hours-label,
 .ce-countdown--theme-12 .ce-minutes-label,
@@ -901,6 +909,7 @@ html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-flip-wrap .ce-flip-back {
 		width: 80px;
 	}
 
+  .ce-countdown--theme-12 .ce-years-label,
 	.ce-countdown--theme-12 .ce-days-label,
 	.ce-countdown--theme-12 .ce-hours-label,
 	.ce-countdown--theme-12 .ce-minutes-label,
@@ -928,6 +937,7 @@ html:not([class*='ce-ie']) .ce-countdown--theme-6 .ce-flip-wrap .ce-flip-back {
 		width: 60px;
 	}
 
+  .ce-countdown--theme-12 .ce-years-label,
 	.ce-countdown--theme-12 .ce-days-label,
 	.ce-countdown--theme-12 .ce-hours-label,
 	.ce-countdown--theme-12 .ce-minutes-label,

@@ -20,6 +20,7 @@ dependencies:
 third_party_settings:
   field_group:
     group_glazed_page_design:
+      region: content
       children:
         - field_glazed_body_background
         - field_glazed_page_title_backgrou

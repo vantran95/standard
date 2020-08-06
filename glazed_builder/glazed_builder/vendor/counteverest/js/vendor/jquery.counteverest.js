@@ -88,6 +88,11 @@
 			currentDateTime: null,
 
 			/**
+			 * This is the sizzle selector for the years value inside your countdown wrapper.
+			 */
+			yearsWrapper: '.ce-years',
+
+			/**
 			 * This is the sizzle selector for the days value inside your countdown wrapper.
 			 */
 			daysWrapper: '.ce-days',
@@ -120,6 +125,11 @@
 			 * details.
 			 */
 			millisecondsWrapper: '.ce-mseconds',
+
+			/**
+			 * This is the sizzle selector for the unit "years" inside your countdown wrapper.
+			 */
+			yearsLabelWrapper: '.ce-years-label',
 
 			/**
 			 * This is the sizzle selector for the unit "days" inside your countdown wrapper.
@@ -155,7 +165,19 @@
 			 * Use singular unit labels which can defined with the options "dayLabel", "hourLabel", "minuteLabel",
 			 * "secondLabel", "decisecondLabel", "millisecondLabel".
 			 */
-			singularLabels: false,
+			singularLabels: true,
+
+			/**
+			 * This is the unit label inside "yearsLabelWrapper". If "singularLabels" is enabled and the remaining years
+			 * are greater than 1 (one), this label is used.
+			 */
+			yearsLabel: 'Years',
+
+			/**
+			 * Same as above, but this label is used if "singularLabels" is enabled and the value of the remaining years
+			 * is 1 (one). Set it to null, if you want to use the "yearsLabel" always or use "singularLabels" instead.
+			 */
+			yearLabel: 'Year',
 
 			/**
 			 * This is the unit label inside "daysLabelWrapper". If "singularLabels" is enabled and the remaining days
@@ -268,6 +290,12 @@
 			 * This value is necessary for the calculation of the countdown. Change this value only if you know
 			 * what you are doing.
 			 */
+			yearInMilliseconds: 31536000000,
+
+			/**
+			 * This value is necessary for the calculation of the countdown. Change this value only if you know
+			 * what you are doing.
+			 */
 			dayInMilliseconds: 86400000,
 
 			/**
@@ -336,12 +364,14 @@
 		this._javaScriptDate = null;	//JavaScript date at the time as the server date was submitted
 		this.currentDate = null;
 		this.targetDate = null;
+		this.years = null;
 		this.days = null;
 		this.hours = null;
 		this.minutes = null;
 		this.seconds = null;
 		this.deciseconds = null;
 		this.milliseconds = null;
+		this.yearsLabel = null;
 		this.daysLabel = null;
 		this.hoursLabel = null;
 		this.minutesLabel = null;
@@ -389,6 +419,7 @@
 			//short handle
 			var t = this,
 				s = t.settings,
+				yim = s.yearInMilliseconds,
 				dim = s.dayInMilliseconds,
 				him = s.hourInMilliseconds,
 				iim = s.minuteInMilliseconds,
@@ -426,6 +457,8 @@
 			//save current date for usage in callbacks, etc.
 			t.currentDate = cDate;
 
+			var y = t.round(dTC / yim);
+			dTC = dTC % yim;
 			var d = t.round(dTC / dim);
 			dTC = dTC % dim;
 			var h = t.round(dTC / him);
@@ -438,6 +471,7 @@
 
 			//prevent negative values
 			if (s.countUp == false) {
+				y = t.naturalNum(y)
 				d = t.naturalNum(d);
 				h = t.naturalNum(h);
 				i = t.naturalNum(i);
@@ -445,6 +479,7 @@
 				m = t.naturalNum(m);
 				ds = t.naturalNum(ds);
 			} else {
+				y = y * (-1);
 				d = d * (-1);
 				h = h * (-1);
 				i = i * (-1);
@@ -454,6 +489,7 @@
 			}
 
 			//save values
+			t.years = y;
 			t.days = d;
 			t.hours = h;
 			t.minutes = i;
@@ -494,12 +530,14 @@
 			var t = this,
 				s = t.settings,
 				sL = s.singularLabels,
+				y = t.years,
 				d = t.days,
 				h = t.hours,
 				i = t.minutes,
 				se = t.seconds,
 				ds = t.deciseconds,
 				m = t.milliseconds,
+				syL = s.yearLabel,
 				sdL = s.dayLabel,
 				shL = s.hourLabel,
 				siL = s.minuteLabel,
@@ -509,6 +547,7 @@
 
 			//add left-hand zeros
 			if (s.leftHandZeros == true) {
+				t.years = t.strPad(y, 1);
 				t.days = t.strPad(d, 2);
 				t.hours = t.strPad(h, 2);
 				t.minutes = t.strPad(i, 2);
@@ -517,6 +556,7 @@
 			}
 
 			//decide which label to use (singular/plural)
+			t.yearsLabel = (y == 1 && syL !== null && sL == true) ? syL : s.yearsLabel;
 			t.daysLabel = (d == 1 && sdL !== null && sL == true) ? sdL : s.daysLabel;
 			t.hoursLabel = (h == 1 && shL !== null && sL == true)	? shL : s.hoursLabel;
 			t.minutesLabel = (i == 1 && siL !== null && sL == true) ? siL : s.minutesLabel,
@@ -530,6 +570,7 @@
 				s = t.settings;
 
 			//write time labels to DOM
+			t.writeLabelToDom(s.yearsLabelWrapper, t.yearsLabel);
 			t.writeLabelToDom(s.daysLabelWrapper, t.daysLabel);
 			t.writeLabelToDom(s.hoursLabelWrapper, t.hoursLabel);
 			t.writeLabelToDom(s.minutesLabelWrapper, t.minutesLabel);
@@ -538,6 +579,7 @@
 			t.writeLabelToDom(s.millisecondsLabelWrapper, t.millisecondsLabel);
 
 			//write time values to DOM
+			t.writeDigitsToDom(s.yearsWrapper, t.years, 'ce-years-digit');
 			t.writeDigitsToDom(s.daysWrapper, t.days, 'ce-days-digit');
 			t.writeDigitsToDom(s.hoursWrapper, t.hours, 'ce-hours-digit');
 			t.writeDigitsToDom(s.minutesWrapper, t.minutes, 'ce-minutes-digit');

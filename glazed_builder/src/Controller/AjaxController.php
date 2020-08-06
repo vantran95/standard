@@ -15,6 +15,7 @@ use Drupal\Core\Entity\RevisionLogInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Render\HtmlResponse;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\StreamWrapper\PublicStream;
 use Drupal\glazed_builder\Service\GlazedBuilderServiceInterface;
 use Drupal\glazed_builder\Service\UploadHandler;
 use Drupal\file\Entity\File;
@@ -24,6 +25,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Drupal\Core\Url;
+use Drupal\Core\Access\CsrfTokenGenerator;
 
 class AjaxController extends ControllerBase implements AjaxControllerInterface {
 
@@ -74,7 +77,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *
    * @var \Drupal\Core\Asset\AssetResolverInterface
    */
-  protected $assetResolver;
+   protected $assetResolver;
 
   /**
    * The CSS asset collection renderer
@@ -105,6 +108,44 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
   protected $glazedBuilderService;
 
   /**
+   * The CSRF token generator service
+   *
+   * @var \Drupal\Core\Access\CsrfTokenGenerator
+   */
+  protected $csrfToken;
+
+  /**
+   * Constructs a GlazedBuilderService object
+   *
+   * @param \Symfony\Component\HttpFoundation\RequestStack $requestStack
+   *   The request stack
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The configuration factory
+   * @param \Drupal\Core\File\FileSystemInterface $fileSystem
+   *   The Drupal file system
+   * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
+   *   The current user
+   * @ param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler service
+   * @param \Drupal\glazed_builder\Service\Handler\BlockHandlerInterface $glazedBlockHandler
+   *   The glazed builder block handler service
+   * @param \Drupal\glazed_builder\Service\Handler\ViewHandlerInterface $glazedViewHandler
+   *   The glazed builder view handler service
+   * @param \Drupal\Core\Cache\CacheBackendInterface $cacheBackend
+   *   The cache service;
+   * @param \Drupal\Core\Entity\EntityManagerInterface $entityManager
+   *   The entity manager service
+   * @param \Drupal\Core\Extension\ThemeHandlerInterface $themeHandler
+   *   The theme handler service
+   * @param \Drupal\Core\Language\LanguageManagerInterface $languageManager
+   *   The language manager service
+   * @param \Drupal\Core\Block\BlockManagerInterface $blockManager
+   *   The block manager service
+   * @param \Drupal\Core\Access\CsrfTokenGenerator $csrfToken
+   *   The CSRF token generator service
+   */
+
+  /**
    * Construct an AjaxController object
    *
    * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
@@ -131,8 +172,10 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *   The entity type bundle info manager
    * @param \Drupal\glazed_builder\Service\GlazedBuilderServiceInterface $glazedBuilderService
    *   The glazed builder service
+   * @param \Drupal\Core\Access\CsrfTokenGenerator $csrfToken
+   *   The CSRF token generator service
    */
-  public function __construct(AccountProxyInterface $currentUser, ModuleHandlerInterface $moduleHandler, Connection $database, RequestStack $requestStack, EntityTypeManagerInterface $entityTypeManager, EntityFieldManagerInterface $entityFieldManager, AssetResolverInterface $assetResolver, AssetCollectionRendererInterface $cssAssetCollectionRenderer, AssetCollectionRendererInterface $jsAssetCollectionRenderer, EntityTypeBundleInfoInterface $entityTypeBundleInfoManager, GlazedBuilderServiceInterface $glazedBuilderService) {
+  public function __construct(AccountProxyInterface $currentUser, ModuleHandlerInterface $moduleHandler, Connection $database, RequestStack $requestStack, EntityTypeManagerInterface $entityTypeManager, EntityFieldManagerInterface $entityFieldManager, AssetResolverInterface $assetResolver, AssetCollectionRendererInterface $cssAssetCollectionRenderer, AssetCollectionRendererInterface $jsAssetCollectionRenderer, EntityTypeBundleInfoInterface $entityTypeBundleInfoManager, GlazedBuilderServiceInterface $glazedBuilderService, CsrfTokenGenerator $csrfToken) {
     $this->currentUser = $currentUser;
     $this->moduleHandler = $moduleHandler;
     $this->database = $database;
@@ -144,6 +187,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
     $this->jsAssetCollectionRenderer = $jsAssetCollectionRenderer;
     $this->entityTypeBundleInfoManager = $entityTypeBundleInfoManager;
     $this->glazedBuilderService = $glazedBuilderService;
+    $this->csrfToken = $csrfToken;
   }
 
   /**
@@ -161,8 +205,34 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
       $container->get('asset.css.collection_renderer'),
       $container->get('asset.js.collection_renderer'),
       $container->get('entity_type.bundle.info'),
-      $container->get('glazed_builder.service')
+      $container->get('glazed_builder.service'),
+      $container->get('csrf_token')
     );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function ajaxRefresh() {
+    $url = Url::fromRoute('glazed_builder.ajax_callback');
+
+    // Check if request related to enterprise.
+    $enterprise = FALSE;
+    if (isset($_GET['enterprise']) && $_GET['enterprise'] == 'true') {
+      $enterprise = TRUE;
+    }
+    $moduleHandler = \Drupal::service('module_handler');
+    if ($enterprise && $moduleHandler->moduleExists('glazed_builder_e')) {
+      $url = Url::fromRoute('glazed_builder_e.ajax_callback');
+    } elseif ($enterprise && !$moduleHandler->moduleExists('glazed_builder_e')) {
+      throw new \Exception(t('The Glazed Builder Enterprise module doesn\'t exist or disabled.'));
+    }
+
+    $token = $this->csrfToken->get($url->getInternalPath());
+    $url->setOptions(['absolute' => TRUE, 'query' => ['token' => $token]]);
+    // return new JsonResponse();
+    // return new Response($this->tokenGenerator->get(CsrfRequestHeaderAccessCheck::TOKEN_KEY), 200, ['Content-Type' => 'text/plain']);
+    return new JsonResponse($url->toSTring());
   }
 
   /**
@@ -175,6 +245,16 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
       // Determine if the current user has 'edit via glazed builder' permission
       case 'glazed_login':
         return $this->hasEditAccess();
+
+        break;
+      // Determine if the current user has 'edit via glazed builder' permission
+      case 'glazed_builder_csrf':
+        if ($this->currentUser->hasPermission('edit via glazed builder')) {
+          $url = Url::fromRoute('glazed_builder.ajax_callback');
+          $token = $this->csrfToken->get($url->getInternalPath());
+          $url->setOptions(['absolute' => TRUE, 'query' => ['token' => $token]]);
+          return new JsonResponse($url->toSTring());
+        }
 
         break;
 
@@ -207,12 +287,27 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
           $entity_type = $type[0];
           $bundle = $type[1];
           $name = explode('|', $_POST['name']);
-          $entity_id = $name[0];
-          $field_name = $name[1];
+          if (count($name) > 2 && is_numeric($name[1])) {
+            $entity_id = $name[0];
+            $revision_id = $name[1];
+            $field_name = $name[2];
+          }
+          else {
+            $entity_id = $name[0];
+            $field_name = $name[1];
+            $revision_id = null;
+          }
           $encoded_html = $_POST['shortcode'];
-          $langcode = $_POST['lang'];
+          if (isset($_POST['lang'])) {
+            $langcode = $_POST['lang'];
+          }
+          else {
+            $langcode = \Drupal::languageManager()
+              ->getDefaultLanguage()
+              ->getId();
+          }
 
-          return $this->saveContainer($entity_type, $bundle, $entity_id, $field_name, $encoded_html, $langcode);
+          return $this->saveContainer($entity_type, $bundle, $entity_id, $revision_id, $field_name, $encoded_html, $langcode);
         }
 
         break;
@@ -230,7 +325,15 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
           $id = $name[0];
           $field_name = $name[1];
 
-          return new HtmlResponse($this->loadContainer($entity_type, $id, $field_name));
+          $langcode = $langcode = \Drupal::languageManager()
+            ->getDefaultLanguage()
+            ->getId();
+
+          if (isset($name[2])) {
+            $langcode = $name[2];
+          }
+
+          return new HtmlResponse($this->loadContainer($entity_type, $id, $field_name, $langcode));
         }
 
         break;
@@ -349,7 +452,9 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
           $template = $_POST['template'];
 
           $this->saveUserTemplate($name, $template);
+          return new JsonResponse('');
         }
+
 
         break;
 
@@ -373,6 +478,29 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
         }
 
         break;
+
+      case 'glazed_builder_get_image_style_url':
+        if ($this->currentUser->hasPermission('edit via glazed builder')) {
+          $imageStyle = $_POST['imageStyle'];
+          $fileId = $_POST['fileId'];
+          $fileEntity = \Drupal::entityTypeManager()
+            ->getStorage('file')
+            ->load($fileId);
+          $fileUri = $fileEntity->getFileUri();
+
+          $isSvg = strpos($fileUri, '.svg');
+          if ($imageStyle !== 'original' && !$isSvg) {
+            $image_style = ImageStyle::load($imageStyle);
+
+            return new HtmlResponse(file_url_transform_relative($image_style->buildUrl($fileUri)) . '?fid=' . $fileId);
+          }
+          else {
+            return new HtmlResponse(file_url_transform_relative(file_create_url($fileUri)) . '?fid=' . $fileId);
+          }
+
+        }
+
+        break;
     }
   }
 
@@ -381,7 +509,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    */
   public function fileUpload() {
     $upload_handler = new UploadHandler(array(
-      'accept_file_types' => '/\.(gif|jpe?g|png)$/i'
+        'accept_file_types' => '/\.(gif|jpe?g|png|svg)$/i'
     ));
 
     return new Response('');
@@ -474,8 +602,19 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
       ->execute();
     $entities = $this->entityTypeManager->getStorage($entityType)->loadMultiple($entity_ids);
     foreach ($entities as $entity_id => $entity) {
-      foreach ($glazed_fields as $field_name => $field_label) {
-        $container_names[$entity_id . '|' . $field_name] = $entity->label() . '|' . $field_label;
+      // return the translated entites if exist.
+      if ($entity->isTranslatable()) {
+        foreach ($glazed_fields as $field_name => $field_label) {
+          $languages = $entity->getTranslationLanguages();
+          foreach ($languages as $langcode => $language) {
+            $translatedEntity = $entity->getTranslation($langcode);
+            $container_names[$translatedEntity->id() . '|' . $field_name . '|' . $langcode] = $translatedEntity->label() . '|' . $field_label;
+          }
+        }
+      } else {
+        foreach ($glazed_fields as $field_name => $field_label) {
+          $container_names[$entity_id . '|' . $field_name] = $entity->label() . '|' . $field_label;
+        }
       }
     }
 
@@ -500,17 +639,25 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *
    * @return Symfony\Component\HttpFoundation\JsonResponse
    */
-  private function saveContainer($entityType, $bundle, $entityId, $fieldName, $encodedHtml, $langcode) {
+  private function saveContainer($entityType, $bundle, $entityId, $revisionId, $fieldName, $encodedHtml, $langcode) {
     // Saves Glazed Builder container instance to field, respecting permissions, language and revisions if supported
-    $entity = $this->entityTypeManager->getStorage($entityType)->load($entityId);
-    if ($entity && $entity->access('update', $this->currentUser)) {
-      if ($entity->isTranslatable()) {
-        $languages = $entity->getTranslationLanguages();
-        if (isset($languages[$langcode])) {
-          $entity = $entity->getTranslation($langcode);
-        }
+    $revisionableEntity = $this->entityTypeManager->getStorage($entityType)->getEntityType()->isRevisionable();
+    if ($revisionableEntity && isset($revisionId)) {
+      $entity = $this->entityTypeManager->getStorage($entityType)->loadRevision($revisionId);
+    }
+    else {
+      $entity = $this->entityTypeManager->getStorage($entityType)->load($entityId);
+    }
+    // Load translation if available.
+    if (isset($entity) && $entity->isTranslatable()) {
+      $languages = $entity->getTranslationLanguages();
+      if (isset($languages[$langcode])) {
+        $entity = $entity->getTranslation($langcode);
       }
-      $decoded_short_code = $this->glazedBuilderService->insertBaseTokens(rawurldecode($this->decodeData($encodedHtml)));
+    }
+
+    if ($entity && $entity->access('update', $this->currentUser)) {
+      $decoded_short_code = rawurldecode($this->decodeData($encodedHtml));
 
       $field_values = $entity->get($fieldName)->getValue();
       $field_value = $field_values[0];
@@ -519,16 +666,25 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
       $entity->get($fieldName)->set(0, $field_value);
 
       // Check if the entity type supports revisions.
-      if ($this->entityTypeManager->getDefinition($entityType)->getKey('revision')) {
+      if ($revisionableEntity) {
         $entity->setNewRevision();
+        $entity->isDefaultRevision(TRUE);
         if ($entity instanceof RevisionLogInterface) {
           // If a new revision is created, save the current user as
           // revision author.
           $entity->setRevisionUserId($this->currentUser->id());
+          $entity->setRevisionLogMessage('Saved with Glazed builder');
           $entity->setRevisionCreationTime($this->getRequestTime());
         }
       }
-
+      // Check if enterprise module exists.
+      $moduleHandler = \Drupal::service('module_handler');
+      if ($moduleHandler->moduleExists('glazed_builder_e')) {
+        // Delete locked content.
+        $content_lock = \Drupal::service('glazed_builder_e.content_lock');
+        $content_lock->deleteLockedContent($entityId, $revisionId, $entityType, $langcode);
+      }
+      // Save entity.
       $entity->save();
 
       return new JsonResponse('');
@@ -547,9 +703,11 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *
    * @return string
    */
-  private function loadContainer($entityType, $entityId, $fieldName) {
+  private function loadContainer($entityType, $entityId, $fieldName, $langcode) {
     $entity = $this->entityTypeManager->getStorage($entityType)->load($entityId);
-
+    if ($entity->isTranslatable()) {
+      $entity = $entity->getTranslation($langcode);
+    }
     $field_data = $entity->get($fieldName)->value;
     $this->glazedBuilderService->replaceBaseTokens($field_data);
 
@@ -657,14 +815,28 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    */
   private function getUserTemplates() {
     // this refers to the templates in the "Saved Templates" tab in the Glazed Builder elements modal
-    $result = $this->database->select('glazed_user_templates', 't')
-      ->fields('t', array('name'))
+    $query = $this->database->select('glazed_user_templates', 't')
+      ->fields('t', array('uid', 'name', 'global'));
+    // Collect current user and global templates.
+    $group = $query->orConditionGroup()
       ->condition('t.uid', $this->currentUser->id())
-      ->execute();
+      ->condition('t.global', 1);
+    $query->condition($group);
+
+    $result = $query->execute();
 
     $templates = array();
+    $i = 0;
     while ($template = $result->fetchAssoc()) {
-      $templates[] = htmlspecialchars($template['name']);
+      $templates[$i]['name'] = htmlspecialchars($template['name']);
+      $templates[$i]['global'] = (bool) $template['global'];
+      // Check if the current user is the author of template
+      $current_user_is_author = FALSE;
+      if ($this->currentUser->id() == $template['uid']) {
+        $current_user_is_author = TRUE;
+      }
+      $templates[$i]['current_user_is_author'] = $current_user_is_author;
+      $i ++;
     }
 
     return new JsonResponse($templates);
@@ -682,7 +854,6 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
     $template = $this->database->select('glazed_user_templates', 't')
       ->fields('t', array('template'))
       ->condition('t.name', $templateName)
-      ->condition('t.uid', $this->currentUser->id())
       ->execute()
       ->fetchField();
 
@@ -698,6 +869,8 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *   The name of the template to be saved
    * @param string $templateContents
    *   The contents of the template to be saved
+   * @param boolean $templateGlobal
+   *   The type of template is global or private.
    *
    * @return Symfony\Component\HttpFoundation\JsonResponse
    */
@@ -743,10 +916,12 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
     foreach ($fileIds as $fid) {
       $file = \Drupal\file\Entity\File::load($fid);
       if ($imageStyle && $imageStyle != 'original') {
-        $images[] = ImageStyle::load($imageStyle)->buildUrl($file->getFileUri());
+        $images[] = file_url_transform_relative(
+          ImageStyle::load($imageStyle)->buildUrl($file->getFileUri())
+        ) . '?fid=' . $fid;
       }
       else {
-        $images[] = file_create_url($file->getFileUri());
+        $images[] = file_url_transform_relative(file_create_url($file->getFileUri())) . '?fid=' . $fid;
       }
     }
 

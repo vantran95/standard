@@ -29,32 +29,42 @@
       fileIds.push(entities[i][0]);
     }
     parent.jQuery.ajax({
-      type: 'POST',
-      url: parent.drupalSettings.glazedBuilder.glazedAjaxUrl,
-      data: {
-        action: 'glazed_builder_get_image_urls',
-        fileIds: fileIds,
-        imageStyle: $input.siblings('.glazed-builder-image-styles:first').val(),
-      },
+      type: 'get',
+      url: parent.drupalSettings.glazedBuilder.glazedCsrfUrl,
+      dataType: "json",
       cache: false,
+      context: this
     }).done(function(data) {
-      // We need to access parent window, find correct image field and close media modal
-      if ($input.hasClass('glazed-builder-multi-image-input')) {
-        if ($input.val()) {
-          $input.val($input.val() + ',' + data);
+      parent.jQuery.ajax({
+        type: 'POST',
+        url: data,
+        data: {
+          action: 'glazed_builder_get_image_urls',
+          fileIds: fileIds,
+          imageStyle: $input.siblings('.glazed-builder-image-styles:first').val(),
+        },
+        cache: false,
+      }).done(function(data) {
+        // We need to access parent window, find correct image field and close media modal
+        if ($input.hasClass('glazed-builder-multi-image-input')) {
+          if ($input.val()) {
+            $input.val($input.val() + ',' + data);
+          }
+          else {
+            $input.val(data);
+          }
         }
         else {
           $input.val(data);
         }
-      }
-      else {
-        $input.val(data);
-      }
-      $input.trigger('change');
-      parent.jQuery(parent.document).find('#az-media-modal').remove();
-    }).fail(function(data) {
-      alert(Drupal.t('Image selection failed, please make sure to select only image files'));
-      parent.jQuery(parent.document).find('#az-media-modal').remove();
+        $input.trigger('change');
+        parent.jQuery(parent.document).find('#az-media-modal').remove();
+        $input.removeAttr('data-uuid');
+      }).fail(function(data) {
+        alert(Drupal.t('Image selection failed, please make sure to select only image files'));
+        parent.jQuery(parent.document).find('#az-media-modal').remove();
+        $input.removeAttr('data-uuid');
+      });
     });
   }
 

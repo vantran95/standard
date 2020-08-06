@@ -5,11 +5,13 @@
 
   "use strict";
 
+  window.glazedBuilder = {};
   // Set elements that Glazed Builder will globally recognise
-  window.glazed_editable = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img:not(.not-editable)', 'a:not(.not-editable)', 'i:not(.not-editable)'];
-  window.glazed_styleable = [];
-  window.glazed_textareas = [];
-  window.glazed_formats = [];
+  window.glazedBuilder.glazed_editable = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img:not(.not-editable)', 'a:not(.not-editable)', 'i:not(.not-editable)'];
+  window.glazedBuilder.glazed_styleable = [];
+  window.glazedBuilder.glazed_textareas = [];
+  window.glazedBuilder.glazed_formats = [];
+
 
   /**
    * Hide the resize image controls
@@ -134,7 +136,7 @@
     var filesUrl = drupalSettings.glazedBuilder.publicFilesFolder;
 
     // First check if we're dealing with a local image in public files storage
-    if (url.indexOf(filesUrl) !== -1) {
+    if (url.indexOf(filesUrl ) !== -1 && url.indexOf('svg') === -1) {
       // Check if we're dealing with a non-image style URL
       if (url.indexOf("/public/") === -1) {
         // Insert the image style into the URL
@@ -218,6 +220,8 @@
   /**
    * Create a thumbnail from a given filename, and insert it into the DOM
    *
+   * @var string fileUrl
+   *   The file location url.
    * @var string fileName
    *   The name of the file to be inserted
    * @var jQuery input
@@ -225,13 +229,18 @@
    * @var string delimiter
    *   The delimiter used between filenames stored in the input
    */
-  function insertImageThumbnail(fileUrl, input, delimiter) {
+  function insertImageThumbnail(fileUrl, input, delimiter, fileLocation) {
     var imageContainer, closeButton, image, imageList;
 
     // Create a container for the thumbnail
     imageContainer = $("<div/>", {class:"image-preview", "data-filename":getFileNameFromUrl(fileUrl)});
     // Create the image element
-    image = $("<img/>", {src:getImageStyleUrl(fileUrl, "thumbnail")});
+    if (fileLocation) {
+      image = $("<img/>", {src:fileLocation});
+    }
+    else {
+      image = $("<img/>", {src:getImageStyleUrl(fileUrl, "thumbnail")});
+    }
     // Create the remove button
     closeButton = $("<a/>", {class:"glyphicon glyphicon-remove", href:"#"}).click(thumbnailCloseButtonClickHandler);
 
@@ -276,7 +285,7 @@
     // it will handle the upload using AJAX.
     $("<input/>", {type:"file", class:"image_upload", "data-url":drupalSettings.glazedBuilder.fileUploadUrl}).insertBefore(input).fileupload({
       dataType:"json",
-      acceptFileTypes:/(\.|\/)(gif|jpe?g|png)$/i,
+      acceptFileTypes:/(\.|\/)(gif|jpe?g|png|svg)$/i,
       done:function(e, data) {
         var imageStyle = input.siblings("select:first").val();
 
@@ -290,7 +299,7 @@
           var url;
           // Set the URL to be added, based on the image style selected
           if (imageStyle === "original") {
-            url = data.result.files[index];
+            url = data.result.files[index].fileUrl + '?fid=' + data.result.files[index].fileId;
           }
           else {
             url = getImageStyleUrl(data.result.files[index], imageStyle);
@@ -302,15 +311,124 @@
 
             currentImages.push(url);
             input.val(currentImages.join(delimiter));
-	      }
-	      else {
+	        }
+          else {
             input.val(url);
           }
 
           // Create a thumbnail for the uploaded image
-          insertImageThumbnail(data.result.files[index], input, delimiter);
+          glazed_builder_get_images('thumbnail', url, input, delimiter);
         });
       }
+    });
+  }
+
+  /**
+   * Helper function to load images.
+   *
+   * @var string imageStyle.
+   *   The image style.
+   * @var string fileUrl
+   *   The file location url.
+   * @var jQuery input
+   *   The input used as a reference for inserting the select element into the DOM.
+   * @var string delimiter
+   *   The delimiter used between URLs in the input.
+   * @var array newImages
+   *   The array with images for elements with multiple images.
+   */
+  function glazed_builder_get_images(imageStyle, fileUrl, input, delimiter, newImages) {
+    var filesUrl = drupalSettings.glazedBuilder.publicFilesFolder;
+    // Check if it's an image stored in files.
+    if (fileUrl.indexOf(filesUrl) !== -1) {
+      var fileId = '';
+      var idPosition = fileUrl.indexOf('?fid=');
+      if (idPosition > -1) {
+        fileId = fileUrl.substr(idPosition + 5);
+      }
+      if (fileId.length > 0) {
+        glazed_builder_get_image_style_url(imageStyle, fileId,function(fileLocation) {
+          glazed_builder_insert_image(imageStyle, fileUrl, fileId, input, delimiter, newImages, fileLocation);
+        });
+      }
+      else {
+        var fileLocation = getImageStyleUrl(fileUrl, imageStyle);
+        glazed_builder_insert_image(imageStyle, fileUrl, fileId, input, delimiter, newImages, fileLocation);
+
+      }
+    }
+    else {
+      glazed_builder_insert_image(imageStyle, fileUrl, null, input, delimiter, newImages, null);
+    }
+  }
+
+  /**
+   * Insert image in input or create thumbnail.
+   *
+   * @var string imageStyle
+   *   The image style.
+   * @var string fileUrl
+   *   The file location url.
+   * @var string fileId
+   *   The image file id.
+   * @var jQuery input
+   *   The input used as a reference for inserting the select element into the DOM.
+   * @var string delimiter
+   *   The delimiter used between URLs in the input.
+   * @var string newImages
+   *   The array with images for elements with multiple images.
+   * @var string fileLocation
+   *   The image new location url.
+   */
+  function glazed_builder_insert_image(imageStyle, fileUrl, fileId, input, delimiter, newImages, fileLocation) {
+    if (!fileLocation) {
+      fileLocation = fileUrl;
+    }
+    if (imageStyle === 'thumbnail') {
+      insertImageThumbnail(fileUrl, input, delimiter, fileLocation);
+    }
+    else if (delimiter) {
+      newImages.push(fileLocation);
+      // Insert the new image URLs into the image field
+      input.val(newImages.join(delimiter));
+    }
+    else {
+      input.val(fileLocation);
+    }
+  }
+
+  /**
+   * Get image style url with itok.
+   *
+   * @var string imageStyle
+   *   The image style.
+   * @var string fileId
+   *   The image file id.
+   */
+  function glazed_builder_get_image_style_url(imageStyle, fileId, callback) {
+    $.ajax({
+      type: 'get',
+      url: drupalSettings.glazedBuilder.glazedCsrfUrl,
+      dataType: "json",
+      cache: false,
+      context: this
+    }).done(function (data) {
+      $.ajax({
+        type: 'POST',
+        url: data,
+        data: {
+          action: 'glazed_builder_get_image_style_url',
+          imageStyle: imageStyle,
+          fileId: fileId,
+        },
+        cache: false,
+      }).done(function (data) {
+        if (typeof callback === 'function') {
+          callback(data);
+        }
+      }).fail(function () {
+        callback('');
+      });
     });
   }
 
@@ -323,7 +441,7 @@
    *   The delimiter used between URLs in the input
    */
   function imageStyleChangeHandler(selectElement, delimiter) {
-    var imageStyle, imageInput, currentImages, newImages, imageStyleUrl;
+    var imageStyle, imageInput, currentImages, newImages;
 
     // Find the selected option and act on it
     imageStyle = selectElement.val();
@@ -339,17 +457,13 @@
       newImages = [];
       // Loop through each of the current images, creating an array with the new image URLs
       $.each(currentImages, function(index) {
-        newImages.push(getImageStyleUrl(currentImages[index], imageStyle));
+        var fileUrl = currentImages[index];
+        glazed_builder_get_images(imageStyle, fileUrl, imageInput, delimiter, newImages);
       });
-
-      // Insert the new image URLs into the image field
-      imageInput.val(newImages.join(delimiter));
     }
     else {
-      // Get the URL of the image with the applied image stye
-      imageStyleUrl = getImageStyleUrl(imageInput.val(), imageStyle);
-      // Insert the new uRL into the image input
-      imageInput.val(imageStyleUrl);
+      var fileUrl = imageInput.val();
+      glazed_builder_get_images(imageStyle, fileUrl, imageInput);
     }
   }
 
@@ -412,7 +526,8 @@
 
       // Loop through the images creating thumbnails for each image
       $.each(currentImages, function(index) {
-        insertImageThumbnail(currentImages[index], input, delimiter);
+        var fileUrl = currentImages[index];
+        glazed_builder_get_images('thumbnail', fileUrl, input, delimiter);
       });
 
       // Show the image controls, since there has been an image inserted
@@ -430,7 +545,7 @@
    * @var string delimiter
    *   The delimiter used between URLs in the input
    */
-  window.images_select = function (input, delimiter) {
+  window.glazedBuilder.images_select = function (input, delimiter) {
     var $input = $(input);
     $input.css("display", "block").wrap($("<div/>", {class:"ac-select-image"}));
 

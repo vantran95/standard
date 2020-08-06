@@ -1,5 +1,4 @@
 <?php
-
 namespace Drupal\glazed_builder\Service;
 
 use Drupal\Component\Utility\Html;
@@ -172,7 +171,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
     $filesDirectoryPath = str_replace('\\', '/', $this->getFilesDirectoryPath());
     $modulePath = str_replace('\\', '/', $this->getModulePath());
     $replacements = [
-      $this->getBaseUrl() => '-base-url-',
+      $this->getBasePath() => '-base-url-',
       $filesDirectoryPath => '-files-directory-',
       $modulePath => '-module-directory-',
     ];
@@ -184,13 +183,19 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
    * {@inheritdoc}
    */
   public function replaceBaseTokens(&$content) {
+
     // Get url-safe path, replace backslashes from windows paths
     $filesDirectoryPath = str_replace('\\', '/', $this->getFilesDirectoryPath());
     $modulePath = str_replace('\\', '/', $this->getModulePath());
     $replacements = [
-      '-base-url-' => $this->getBaseUrl(),
+      '-base-url-' => $this->getBasePath(),
       '-files-directory-' => $filesDirectoryPath,
       '-module-directory-' => $modulePath,
+      $this->getBaseUrl() . $filesDirectoryPath => $this->getBasePath() . '/' . $filesDirectoryPath,
+      $this->getBaseUrl() . $modulePath => $this->getBasePath() . '/' . $modulePath,
+      '="' . $filesDirectoryPath => '="' . $this->getBasePath() . '/' . $filesDirectoryPath,
+      '="' . $filesDirectoryPath => '="' . $this->getBasePath() . '/' . $filesDirectoryPath,
+      $this->getBaseUrl() => $this->getBasePath(),
     ];
 
     $content = str_replace(array_keys($replacements), array_values($replacements), $content);
@@ -199,7 +204,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
   /**
    * {@inheritdoc}
    */
-  public function updateHtml($dataString) {
+  public function updateHtml($dataString, $enable_editor) {
     $response = [
       'output' => $dataString,
       'library' => [],
@@ -209,7 +214,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
 
     $this->replaceBaseTokens($response['output']);
     $this->parseContentForScripts($response);
-    $this->parseForContent($response);
+    $this->parseForContent($response, $enable_editor);
 
     return $response;
   }
@@ -248,9 +253,16 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
     $url->setOptions(['absolute' => TRUE, 'query' => ['token' => $token]]);
     $settings['fileUploadUrl'] = $url->toString();
 
-    $default_scheme = \Drupal::config('system.file')->get('default_scheme');
-    $settings['publicFilesFolder'] = file_create_url($default_scheme . '://');
-    $settings['fileUploadFolder'] = file_create_url($default_scheme . '://glazed_builder_images');
+    // @todo support private file scheme in ac_drupal.js, it's currently not working
+    // $default_scheme = \Drupal::config('system.file')->get('default_scheme');
+    $default_scheme ='public';
+    if ($default_scheme == 'public') {
+      $settings['publicFilesFolder'] = file_url_transform_relative(file_create_url($default_scheme . '://'));
+    }
+    else {
+      $settings['publicFilesFolder'] = file_url_transform_relative(file_create_url('system/files/'));
+    }
+    $settings['fileUploadFolder'] = file_url_transform_relative(file_create_url($default_scheme . '://glazed_builder_images'));
 
     if ($cke_stylesset = $config->get('cke_stylesset')) {
       $settings['cke_stylesset'] = $this->ckeParseStyles($cke_stylesset);
@@ -370,7 +382,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
             }
             $block_elements['block-' . $block_id] = $this->t('Block: @block_name', ['@block_name' => ucfirst($definition['category']) . ': ' . $definition['admin_label']])->render();
           }
-
+          asort($block_elements);
           $this->cacheBackend->set('glazed_builder:cms_elements_blocks', $block_elements);
         }
       }
@@ -393,6 +405,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
               $views_elements[$key] = t('View: @view_name', ['@view_name' => $view->label() . ' (' . $display->display['display_title'] . ')'])->render();
             }
           }
+          asort($views_elements);
           $this->cacheBackend->set('glazed_builder:cms_elements_views', $views_elements);
         }
       }
@@ -406,8 +419,16 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
    * {@inheritdoc}
    */
   public function getFilesDirectoryPath() {
-    $default_scheme = $this->configFactory->get('system.file')->get('default_scheme');
-    return trim(str_replace($this->getBaseUrl(), '', file_create_url($default_scheme . '://')), '/');
+    // @todo support private file scheme in ac_drupal.js, it's currently not working
+    // $default_scheme = \$default_scheme = $this->configFactory->get('system.file')->get('default_scheme');
+    $default_scheme ='public';
+    if ($default_scheme == 'public') {
+      $files_folder = file_create_url($default_scheme . '://');
+    }
+    else {
+      $files_folder = file_create_url('system/files/');
+    }
+    return trim(str_replace($this->getBaseUrl(false), '', $files_folder), '/');
   }
 
   /**
@@ -435,10 +456,9 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
    * {@inheritdoc}
    */
   public function getGlazedElementsFolders() {
-    $base_url = $this->getBaseUrl();
     $glazed_elements_folders = [[
       'folder' => realpath($this->getModulePath()) . DIRECTORY_SEPARATOR . 'glazed_elements',
-      'folder_url' => $base_url . '/' . $this->getModulePath() . '/' . 'glazed_elements',
+      'folder_url' => '/' . $this->getModulePath() . '/' . 'glazed_elements',
     ]];
 
     $themes = $this->themeHandler->listInfo();
@@ -447,7 +467,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
         && ($folder = $this->fileSystem->realpath($this->getPath('theme', $theme_key) . DIRECTORY_SEPARATOR . 'elements'))) {
         $glazed_elements_folders[] = [
           'folder' => $folder,
-          'folder_url' => $base_url . '/' . $this->getPath('theme', $theme_key) . '/' . 'elements',
+          'folder_url' => '/' . $this->getPath('theme', $theme_key) . '/' . 'elements',
         ];
       }
     }
@@ -462,6 +482,14 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
   public function getBaseUrl() {
     $current_request = $this->requestStack->getCurrentRequest();
     return $current_request->getSchemeAndHttpHost() . $current_request->getBasePath();
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getBasePath() {
+    $current_request = $this->requestStack->getCurrentRequest();
+    return $current_request->getBasePath();
   }
 
   /**
@@ -570,10 +598,48 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
             $storage = $executable_view->storage;
             $defaultDisplay = &$storage->getDisplay('default');
 
+            $hasExposed = 0;
+            $executable_view->initHandlers();
+            $executable_view->build();
+
+            if (isset($defaultDisplay['display_options']['filters'])) {
+              foreach ($defaultDisplay['display_options']['filters'] as $filter) {
+                if (isset($filter['exposed']) && $filter['exposed'] === true) {
+                  $hasExposed = 1;
+                  break;
+                }
+              }
+            }
+
+            if (isset($display->options['filters'])) {
+              foreach ($display->options['filters'] as $filter) {
+                if (isset($filter['exposed'])) {
+                  if ($filter['exposed'] === FALSE) {
+                    $hasExposed = 0;
+                  } elseif ($filter['exposed'] === TRUE) {
+                    $hasExposed = 1;
+                    break;
+                  }
+                }
+              }
+            }
+
+            $ajaxEnabled = 0;
+
+            if (isset($defaultDisplay['display_options']['use_ajax']) && ($defaultDisplay['display_options']['use_ajax'])) {
+              $ajaxEnabled = 1;
+            }
+
+            if (isset($display->options['use_ajax']) && !empty($display->options['use_ajax'])) {
+              $ajaxEnabled = (int) $display->options['use_ajax'];
+            }
+
             $cms_view_elements_settings[$key] = [
               'view_display_type' => $display->getType(),
               'title' => !empty($title) ? 1 : 0,
-              'contextual_filter' => isset($defaultDisplay['display_options']['arguments']) && count($defaultDisplay['display_options']['arguments']) ? 1 : 0
+              'contextual_filter' => isset($defaultDisplay['display_options']['arguments']) && count($defaultDisplay['display_options']['arguments']) ? 1 : 0,
+              'exposed_filter' => $hasExposed,
+              'ajax_enabled' => $ajaxEnabled
             ];
 
             $fields = isset($display->display['display_options']['fields']) ? $display->display['display_options']['fields'] : [];
@@ -644,8 +710,6 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
       }
       else {
         $elements = [];
-
-        $base_url = $this->getBaseUrl();
 
         $glazed_elements_folders = $this->getGlazedElementsFolders();
 
@@ -857,11 +921,14 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
    *   - settings: an array of drupalSettings to be included
    *   - mode: the mode of the response
    */
-  private function parseForContent(&$response) {
+  private function parseForContent(&$response, $enable_editor) {
     $doc = $this->createDocument($response['output']);
     $this->stripScriptsAndStylesheetsFromContent($doc, $response);
     $this->parseDocumentForTemplateLibrary($doc, $response);
     $this->parseDocumentForCmsElements($doc, $response);
+    if (!$enable_editor) {
+      $this->parseDocumentForCleanup($doc);
+    }
     $this->getValueFromDoc($doc, $response);
   }
 
@@ -906,20 +973,28 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
   private function stripScriptsAndStylesheetsFromContent(\DOMDocument $doc, array &$response) {
     // Strip script tags
     $scripts = $doc->getElementsByTagName('script');
-    // Note - use a while loop rather than foreach, as the dom document changes when
-    // a node is removed, causing unexpected results
-    while ($scripts->length) {
-      $scripts->item(0)->parentNode->removeChild($scripts->item(0));
-      $scripts = $doc->getElementsByTagName('script');
+    // Looping backwards due to DOM changing and DomNodeList quirks: http://php.net/manual/en/class.domnodelist.php#83390
+    for ($i = $scripts->length; --$i >= 0; ) {
+      $script = $scripts->item($i);
+      if ($script->hasAttribute('src')) {
+        $parent_classes = $script->parentNode->getAttribute('class');
+        if (strpos($parent_classes, 'az-html') !== FALSE) {
+          return; // skip over tags in HTML elements
+        }
+        $script->parentNode->removeChild($script);
+      }
     }
 
     // Strip stylesheets
     $stylesheets = $doc->getElementsByTagName('link');
-    while ($stylesheets->length) {
-      $stylesheet = $stylesheets->item(0);
+    for ($i = $stylesheets->length; --$i >= 0; ) {
+      $stylesheet = $stylesheets->item($i);
       if ($stylesheet->hasAttribute('rel') && $stylesheet->getAttribute('rel') == 'stylesheet') {
+        $parent_classes = $stylesheet->parentNode->getAttribute('class');
+        if (strpos($parent_classes, 'az-html') !== FALSE) {
+          return; // skip over tags in HTML elements
+        }
         $stylesheet->parentNode->removeChild($stylesheet);
-        $stylesheets = $doc->getElementsByTagName('link');
       }
     }
   }
@@ -939,7 +1014,6 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
    *   - mode: the mode of the response
    */
   private function parseDocumentForTemplateLibrary(\DOMDocument $doc, array &$response) {
-    $base_url = $this->getBaseUrl();
     $xpath = new \DOMXpath($doc);
     // We aggregate all element css and remove the link tags, but not sidebar
     // elements for editors because those would never be restored and thus lost after resaving.
@@ -993,6 +1067,7 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
       // Additional settings for cms views.
       $data = [
         'display_title' => $node->getAttribute('data-azat-display_title'),
+        'display_exposed_filters' => $node->getAttribute('data-azat-display_exposed_filters'),
         'override_pager' => $node->getAttribute('data-azat-override_pager'),
         'items' => $node->getAttribute('data-azat-items'),
         'offset' => $node->getAttribute('data-azat-offset'),
@@ -1010,6 +1085,62 @@ class GlazedBuilderService implements GlazedBuilderServiceInterface {
         $response['settings'] = array_merge($response['settings'], $assets->getSettings());
       }
     }
+  }
+
+  /**
+   * Parse the given DOMDocument and remove editor attributes if
+   * editor is not enabled on the container.
+   *
+   * @param \DOMDocument $doc
+   *   The documentcontaining the parseable data
+   *
+   * @return \DOMDocument
+   *   An object containing the data, ready to be parsed for content
+   */
+  private function parseDocumentForCleanup(\DOMDocument $doc) {
+    $xpath = new \DOMXpath($doc);
+    // Cleanup builder attributes.
+    $dynamic_els = [
+      'accordion',
+      'carousel',
+      'container',
+      'layers',
+      'section',
+      'tabs',
+      'circle_counter',
+      'countdown',
+      'counter',
+      'images_carousel',
+      'video'
+    ];
+
+    $glazedDataAttrsElements = $xpath->query('//*[contains(@class,"az-element") or contains(@class,"az-ctnr")]');
+    // Loop through elements.
+    foreach($glazedDataAttrsElements as $element) {
+      $data_attrs = [];
+      $attributes = $element->attributes;
+      $el_name = str_replace('az_', '', $element->getAttribute('data-azb'));
+      $el_anim = $element->getAttribute('data-azat-an_start');
+      if (!($el_name) OR in_array($el_name, $dynamic_els) OR $el_anim)
+        continue;
+      for ($i = 0; $i < $attributes->length; $i++) {
+        $item = $attributes->item($i);
+        $attr = $item->nodeName;
+        // Collect data attributes at the element.
+        if (preg_match('#^data-az(.*)$#i', $attr) && !in_array($item->nodeName, $data_attrs)) {
+          $data_attrs[] = $item->nodeName;
+        }
+      }
+
+      // Loop through data attributes.
+      foreach ($data_attrs as $attr) {
+        if ($element->hasAttribute($attr)) {
+          $element->removeAttribute($attr);
+        }
+      }
+    }
+
+    return $doc;
   }
 
   /**

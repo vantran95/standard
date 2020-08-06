@@ -47,11 +47,15 @@ class ProfileHandler {
     $hide_block_elements = array_diff_key($this->getBlockElements(), array_combine($profile->get('blocks'), $profile->get('blocks')));
     $hide_view_elements = array_diff_key($this->getViewElements(), array_combine($profile->get('views'), $profile->get('views')));
     $hide_elements = array_merge($hide_main_elements, $hide_block_elements, $hide_view_elements);
+    $show_sidebar = $profile->get('sidebar');
+    $glazed_editor = $profile->get('glazed_editor');
 
     $cke_config = self::getCkeConfig($profile);
     return [
       'hide_els' => $hide_elements,
       'ck_config' => $cke_config,
+      'sidebar' => $show_sidebar,
+      'glazed_editor' => $glazed_editor,
     ];
   }
 

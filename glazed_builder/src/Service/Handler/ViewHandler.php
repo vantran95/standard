@@ -39,7 +39,10 @@ class ViewHandler implements ViewHandlerInterface {
         $view->setArguments($parts);
       }
 
-      $view->display_handler->setOption('exposed_block', TRUE);
+      // Show exposed filters for all users
+      if (isset($data['display_exposed_filters']) && $data['display_exposed_filters'] != 'yes') {
+        $view->display_handler->setOption('exposed_block', TRUE);
+      }
       $exposed_input = $view->getExposedInput();
       parse_str(html_entity_decode($exp_input), $exposed_input);
       if ($view->display_handler->display['display_plugin'] == 'block') {

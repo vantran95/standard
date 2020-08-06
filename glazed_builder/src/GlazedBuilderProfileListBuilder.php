@@ -27,6 +27,8 @@ class GlazedBuilderProfileListBuilder extends DraggableListBuilder {
     $header['label'] = $this->t('Label');
     $header['roles'] = $this->t('Roles');
     $header['status'] = $this->t('Status');
+    $header['sidebar'] = $this->t('Sidebar');
+    $header['glazed_editor'] = $this->t('Glazed Editor');
     return $header + parent::buildHeader();
   }
 
@@ -38,6 +40,8 @@ class GlazedBuilderProfileListBuilder extends DraggableListBuilder {
     $row['label'] = $entity->label();
     $row['id']['data']['#markup'] = implode(',', $entity->get('roles')) ;
     $row['status']['data']['#markup'] = $entity->status() ? $this->t('Enabled') : $this->t('Disabled');
+    $row['sidebar']['data']['#markup'] = $entity->get('sidebar') ? $this->t('Showed') : $this->t('Hidden');
+    $row['glazed_editor']['data']['#markup'] = $entity->get('glazed_editor') ? $this->t('Always On') : $this->t('Always Off');
     return $row + parent::buildRow($entity);
   }
 
@@ -130,10 +134,10 @@ class GlazedBuilderProfileListBuilder extends DraggableListBuilder {
       '#default_value' => $config->get('format_filters'),
     );
 
-    $form['uninstall'] = array(
+    $form['paths'] = array(
       '#type' => 'details',
-      '#title' => $this->t('Uninstall batch process'),
-      '#description' => $this->t('Our builder content contains tokens like -base-url- that make sure your content safely migrates between environments. Before uninstalling this module you have to run this batch process on your production environment to replace the tokens. This will ensure your image, css and javascript files will keep working.'),
+      '#title' => $this->t('Convert absolute paths to relative'),
+      '#description' => $this->t('This process will convert all paths stored by Glazed Builder to relative paths. We updated Glazed Builder to use relative paths to improve reliability in all hosting environments. It is recommended to run this batch process and update all your paths if you have content in your website that was last saved before updating to version 8.x-1.4.3.'),
     );
 
     if (file_exists(__DIR__ . '/../glazed_builder/glazed_builder.js')) {
@@ -145,12 +149,12 @@ class GlazedBuilderProfileListBuilder extends DraggableListBuilder {
       );
     }
 
-    $form['uninstall']['actions'] = array(
+    $form['paths']['actions'] = array(
       '#type' => 'actions',
     );
-    $form['uninstall']['actions']['start_batch'] = array(
+    $form['paths']['actions']['start_batch'] = array(
       '#type' => 'submit',
-      '#value' => $this->t('Remove url tokens from Glazed Builder content'),
+      '#value' => $this->t('Convert absolute paths'),
       '#submit' => [[self::class, 'startBatch']],
     );
 
@@ -172,14 +176,13 @@ class GlazedBuilderProfileListBuilder extends DraggableListBuilder {
       ->set('media_browser', $form_state->getValue('media_browser'))
       ->save();
     $this->messenger()->addStatus($this->t('The configuration has been updated'));
-    parent::submitForm($form, $form_state);
   }
 
   /**
    * Start batch submit callback.
    */
   public static function startBatch(array &$form, FormStateInterface $form_state) {
-    $form_state->setRedirect('glazed_builder.admin_uninstall');
+    $form_state->setRedirect('glazed_builder.admin_paths');
   }
 
 }

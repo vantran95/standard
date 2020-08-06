@@ -39,7 +39,7 @@ interface GlazedBuilderServiceInterface {
    * Replaces Drupal Blocks/Views element placeholders with full content.
    *
    * @param string $dataString
-   *   Identification string for container consisting of 
+   *   Identification string for container consisting of
    *   entitytype|bundle|entity ID|field machine name.
    *
    * @return array
@@ -49,7 +49,7 @@ interface GlazedBuilderServiceInterface {
    *   - js: an array of JS files to be included
    *   - mode: the mode of the response
    */
-  public function updateHtml($dataString);
+  public function updateHtml($dataString, $enable_editor);
 
   /**
    * Attaches js and css assets to field render array. Also adds some libraries
@@ -120,6 +120,14 @@ interface GlazedBuilderServiceInterface {
    *   The base URL of the installation
    */
   public function getBaseUrl();
+
+  /**
+   * Get the base URL of the installation
+   *
+   * @return string
+   *   The base URL of the installation
+   */
+  public function getBasePath();
 
   /**
    * Parses a string for the relevant element info

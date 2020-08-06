@@ -14,5 +14,16 @@
       width: 32%;
       padding: .3%;
     }
+    .form-item-all-blocks,
+    .form-item-all-views {
+      width: 100%;
+    }
+    fieldset {
+      width: 100%;
+    }
+  }
+
+  .form-item-sidebar {
+    width: 100%;
   }
 }

@@ -48,11 +48,11 @@ class PageController extends ControllerBase implements PageControllerInterface {
   /**
    * {@inheritdoc}
    */
-  public function uninstallPage() {
+  public function pathsPage() {
     return [
-      '#prefix' => '<div id="glazed_builder_uninstallPage_page">',
+      '#prefix' => '<div id="glazed_builder_pathsPage_page">',
       '#suffix' => '</div>',
-      'form' => $this->formBuilder->getForm('Drupal\glazed_builder\Form\UninstallForm'),
+      'form' => $this->formBuilder->getForm('Drupal\glazed_builder\Form\PathsForm'),
     ];
   }
 }

@@ -19,11 +19,15 @@ use Drupal\Core\Form\FormStateInterface;
  * of specific entity functionality
  */
 function glazed_builder_entity_type_alter(array &$entity_types) {
-  $node = &$entity_types['node'];
-  $node->setClass('Drupal\glazed_builder\Entity\Node');
+  if (!empty($entity_types['node'])) {
+    $node = &$entity_types['node'];
+    $node->setClass('Drupal\glazed_builder\Entity\Node');
+  }
 
-  $block_content = &$entity_types['block_content'];
-  $block_content->setClass('Drupal\glazed_builder\Entity\BlockContent');
+  if (!empty($entity_types['block_content'])){
+    $block_content = &$entity_types['block_content'];
+    $block_content->setClass('Drupal\glazed_builder\Entity\BlockContent');
+  }
 }
 
 /**
@@ -41,15 +45,45 @@ function glazed_builder_update_status_alter(&$projects) {
  * Implements hook_page_bottom().
  */
 function glazed_builder_page_bottom(array &$page_bottom) {
-  if (theme_get_setting('modal_enabled') &&  \Drupal::currentUser()->hasPermission('Administer themes')) {
-    drupal_set_message(t('Your theme is trying to load the Bootstrap Modals override library from the bootstrap basetheme. This library is not compatible with Glazed Builder and therefore its assets have been removed from the page. To make this message disappear Please go to your (default) theme settings form, scroll down to Bootstrap settings, and under the Javascript category disable the "Bootstrap Modals" setting.'), 'error');
-  }
   if (\Drupal::service('path.matcher')->isFrontPage()) {
     $page_bottom['glazed_builder'] = [
       '#prefix' => '<div class="hidden">',
       '#suffix' => '</div>',
       '#markup' => 'sfy39587stp17',
     ];
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function glazed_builder_preprocess_page(array &$variables) {
+  $current_language = \Drupal::languageManager()->getCurrentLanguage()
+    ->getName();
+
+  $default_lang_code = \Drupal::languageManager()
+    ->getDefaultLanguage()
+    ->getId();
+
+  $variables['#attached']['drupalSettings']['currentLanguage'] = $current_language;
+  $variables['#attached']['drupalSettings']['defaultLangCode'] = $default_lang_code;
+}
+
+/**
+ * Implements hook_js_alter().
+ *
+ * When a request is from Glazed Builder we know we already have
+ * certain assets loaded. Preventing reload of jQuery also helps
+ * prevent race conditions leading to undefined function bootstrapSwitch etc.
+ *
+ */
+function glazed_builder_js_alter(&$javascript) {
+  $route = \Drupal::routeMatch()->getRouteName();
+  \Drupal::logger('glazed_builder')->info($route);
+  if ($route == 'glazed_builder.ajax_callback') {
+    unset($javascript['core/assets/vendor/jquery/jquery.min.js']);
+    unset($javascript['core/assets/vendor/underscore/underscore-min.js']);
+    unset($javascript['core/assets/vendor/jquery.ui/ui/jquery-1-7-min.js']);
   }
 }
 
@@ -165,10 +199,6 @@ function glazed_builder_library_info_alter(&$libraries, $extension) {
     $libraries['iframe_selection']['dependencies'][] = 'glazed_builder/entity_browser_selection';
     $libraries['modal_selection']['dependencies'][] = 'glazed_builder/entity_browser_selection';
   }
-  if ($extension == 'bootstrap') {
-    unset($libraries['modal']);
-    unset($libraries['modal.jquery.ui.bridge']);
-  }
 }
 
 /**
@@ -187,4 +217,13 @@ function glazed_builder_webform_delete(Drupal\Core\Entity\EntityInterface $entit
   \Drupal::service('plugin.manager.block')->clearCachedDefinitions();
   \Drupal::cache()->delete('glazed_builder:cms_elements_blocks');
   \Drupal::service('cache_tags.invalidator')->invalidateTags(['node_view']);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ */
+function glazed_builder_form_system_modules_paths_confirm_form_alter(&$form, FormStateInterface $form_state) {
+  if (in_array('Glazed Builder', $form['modules']['#items'])) {
+    \Drupal::messenger()->addWarning('This process will convert all paths stored by Glazed Builder to relative paths. We updated Glazed Builder to use relative paths to improve reliability in all hosting environments. It is recommended to run this batch process and update all your paths if you have content in your website that was last saved before updating to version 8.x-1.4.3.');
+  }
 }

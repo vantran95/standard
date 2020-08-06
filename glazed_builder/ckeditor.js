@@ -2,7 +2,7 @@
  /**
   * Glazed Builder Asset Loading Functions
   */
-  window.glazed_builder_set_ckeditor_config = function(mode) {
+  window.glazedBuilder.glazed_builder_set_ckeditor_config = function(mode) {
     CKEDITOR.disableAutoInline = true;
     // Don't add spaces to empty blocks
     CKEDITOR.config.fillEmptyBlocks = false;
@@ -67,8 +67,8 @@
     CKEDITOR.config.protectedSource.push(/<link.*?>/gi);
 
     var palette = [];
-    for (var name in window.sooperthemes_theme_palette) {
-      palette.push(window.sooperthemes_theme_palette[name].substring(1));
+    for (var name in window.drupalSettings.glazedBuilder.palette) {
+      palette.push(window.drupalSettings.glazedBuilder.palette[name].substring(1));
     }
 
     // Only once apply this settings

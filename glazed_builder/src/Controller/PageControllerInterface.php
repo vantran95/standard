@@ -15,10 +15,10 @@ interface PageControllerInterface {
   public function configPage();
 
   /**
-   * Page controller for the glazed builder uninstall page
+   * Page controller for the glazed builder paths page
    *
    * @return array
-   *   A render array representing the page, and containing the uninstall form
+   *   A render array representing the page, and containing the paths form
    */
-  public function uninstallPage();
+  public function pathsPage();
 }

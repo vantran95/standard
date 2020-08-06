@@ -172,10 +172,22 @@
       margin: 10px 5px;
     }
   }
+  &.st-owl-navigation-outside.st-owl-navigation-bottomLeft,
+  &.st-owl-navigation-outside.st-owl-navigation-topLeft {
+    .owl-buttons {
+      text-align: left;
+    }
+  }
   &.st-owl-navigation-outside.st-owl-navigation-bottomRight,
   &.st-owl-navigation-outside.st-owl-navigation-topRight {
     .owl-buttons {
       text-align: right;
+    }
+  }
+  &.st-owl-navigation-outside.st-owl-navigation-bottomCenter,
+  &.st-owl-navigation-outside.st-owl-navigation-topCenter {
+    .owl-buttons {
+      text-align: center;
     }
   }
   &.st-owl-navigation-outside.st-owl-navigation-adjacent {

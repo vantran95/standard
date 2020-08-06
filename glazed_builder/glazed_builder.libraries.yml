@@ -9,13 +9,14 @@ core:
 file.upload:
   version: VERSION
   js:
-    js/file-upload/js/vendor/jquery.ui.widget.js: {}
     js/file-upload/js/jquery.iframe-transport.js: {}
     js/file-upload/js/jquery.fileupload.js: {}
     js/file-upload/js/jquery.fileupload-process.js: {}
     js/file-upload/js/jquery.fileupload-validate.js: {}
   dependencies:
     - core/jquery
+    - core/jquery.ui
+    - core/jquery.ui.widget
 
 editor.core:
   version: VERSION
@@ -27,6 +28,7 @@ editor.core:
       glazed_builder/css/glazed_builder_backend.css: {}
   js:
     js/ac_drupal.js: { weight: -7 }
+    glazed_builder/vendor/base64-js/base64js.min.js: { minified: true }
     glazed_builder/vendor/bootstrap-notify/bootstrap-notify.min.js: { minified: true }
   dependencies:
     - core/jquery
@@ -34,6 +36,12 @@ editor.core:
     - core/jquery.once
     - core/jquery.ui.sortable
     - glazed_builder/file.upload
+    - glazed_builder/string_compression
+
+string_compression:
+  version: VERSION
+  js:
+    glazed_builder/vendor/lz-string/libs/lz-string.min.js: { minified: true }
 
 editor.frontend:
   version: VERSION
@@ -95,9 +103,9 @@ bootstrap_light:
   dependencies:
     - glazed_builder/vendor_base
 
-uninstall_page:
+paths_page:
   js:
-    js/uninstall_page.js: {}
+    js/paths_page.js: {}
   dependencies:
     - core/jquery
     - core/jquery.once
@@ -285,3 +293,5 @@ configuration.profileform:
     theme:
       css/profile-form.css: {}
       glazed_builder/vendor/ckeditor/skins/moono-lisa/editor.css: {}
+  js:
+    js/profile-form.js: {}

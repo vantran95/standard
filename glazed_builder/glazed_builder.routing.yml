@@ -6,12 +6,19 @@ glazed_builder.ajax_callback:
     _permission: 'access content'
     _csrf_token: 'TRUE'
 
+glazed_builder.csrf_refresh:
+  path: '/glazed_builder/csrf'
+  defaults:
+    _controller: 'Drupal\glazed_builder\Controller\AjaxController::ajaxRefresh'
+  requirements:
+    _access: 'TRUE'
+
 glazed_builder.ajax_file_upload_callback:
   path: '/glazed_builder/ajax/file_upload'
   defaults:
     _controller: 'Drupal\glazed_builder\Controller\AjaxController::fileUpload'
   requirements:
-    _permission: 'access content'
+    _permission: 'Edit via glazed builder'
     _csrf_token: 'TRUE'
   methods: [POST, DELETE]
 
@@ -19,7 +26,7 @@ glazed_builder.admin_root:
   path: '/admin/config/content/glazed_builder'
   defaults:
     _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
-    _title: 'Glazed builder'
+    _title: 'Glazed Builder'
   requirements:
     _permission: 'administer glazed builder configuration'
 
@@ -55,10 +62,10 @@ entity.glazed_builder_profile.delete_form:
   requirements:
     _permission: 'administer glazed_builder_profile'
 
-glazed_builder.admin_uninstall:
-  path: '/admin/config/content/glazed_builder/uninstall'
+glazed_builder.admin_paths:
+  path: '/admin/config/content/glazed_builder/paths'
   defaults:
-    _controller: 'Drupal\glazed_builder\Controller\PageController::uninstallPage'
-    _title: 'Uninstall'
+    _controller: 'Drupal\glazed_builder\Controller\PageController::pathsPage'
+    _title: 'Paths'
   requirements:
     _permission: 'administer glazed builder configuration'

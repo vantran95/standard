@@ -1,9 +1,15 @@
 <?php
 
+use Drupal\Core\Url;
+use Drupal\Core\Site\Settings;
 use Drupal\Component\Utility\Html;
-use GuzzleHttp\Exception\RequestException;
+use Drupal\Component\Utility\Crypt;
+use Drupal\user\Entity\Role;
 use Psr\Http\Message\ResponseInterface;
 use Drupal\Component\Serialization\Json;
+use GuzzleHttp\Exception\RequestException;
+use Drupal\Core\Config\Entity\ConfigEntityType;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 
 /**
  * @file
@@ -25,14 +31,51 @@ function glazed_builder_install() {
 }
 
 /**
+ * Implements hook_uninstall().
+ */
+function glazed_builder_uninstall() {
+  // Delete all Glazed Builder profiles and templates.
+  \Drupal::database()->delete('config')
+    ->condition('name', 'glazed_builder.glazed_builder_profile' . "%", 'LIKE')
+    ->condition('name', 'glazed_builder.template.' . "%", 'LIKE')
+    ->execute();
+
+  // Delete all Glazed Builder page templates.
+  \Drupal::database()->delete('glazed_page_templates')
+    ->execute();
+
+  // Delete all Glazed Builder user templates.
+  \Drupal::database()->delete('glazed_user_templates')
+    ->execute();
+}
+
+/**
  * Implements hook_requirements().
  */
 function glazed_builder_requirements($phase) {
   $requirements = [];
   $result = FALSE;
+  $site = Settings::getHashSalt();
+  $site = Crypt::hmacBase64($site, '3TUoWRDSEFn77KMT');
   $domain = Html::escape(\Drupal::request()->getHost());
+  $base_url = Url::fromRoute('<front>', [], ['absolute' => TRUE])->toString();
+
+  $user_roles = Role::loadMultiple();
+  $gba = [];
+  foreach ($user_roles as $user_role) {
+    if ($user_role->hasPermission('edit via glazed builder')) {
+      $uids = \Drupal::entityQuery('user')
+        ->condition('roles', $user_role->id())
+        ->execute();
+
+      foreach ($uids as $uid) {
+        $gba[] = $uid;
+      }
+    }
+  }
+  $end_point = 'https://www.sooperthemes.com/api/domain-status/' . $domain . '?gba=' . count($gba) . '&project=glazed_builder' . '&site_base_url=' . $base_url . '&site=' . $site;
   try {
-    $result = \Drupal::httpClient()->request('GET', 'https://www.sooperthemes.com/api/domain-status/' . $domain);
+    $result = \Drupal::httpClient()->request('GET', $end_point);
   }
   catch (RequestException $e) {
     watchdog_exception('glazed_builder', $e);
@@ -51,7 +94,7 @@ function glazed_builder_requirements($phase) {
       $requirements['glazed_builder_domain_status']['severity'] = REQUIREMENT_OK;
     }
     else {
-      $requirements['glazed_builder_domain_status']['description'] = t('%domain domain license not found. Please contact SooperThemes at www.sooperthemes.com/contact to authorize this website. If this environment is stricly for development or testing a license is not required.', ['%domain' => $domain]);
+      $requirements['glazed_builder_domain_status']['description'] = t('%domain domain license not found. Please contact Sooperthemes at www.sooperthemes.com/contact to authorize this website. If this environment is stricly for development or testing a license is not required.', ['%domain' => $domain]);
     }
   }
 
@@ -76,9 +119,22 @@ function glazed_builder_schema() {
       ),
       'template' => array(
         'type' => 'text',
+        'size' => 'big',
+      ),
+      'global' => array(
+        'type' => 'int',
+        'description' => 'Whether the template is global',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'default' => 0,
       ),
     ),
     'primary key' => array('uid', 'name'),
+    'unique keys' => array(
+      'name' => array(
+        'name',
+      )
+    ),
   );
   $schema['glazed_page_templates'] = array(
     'description' => 'Glazed page templates',
@@ -143,4 +199,71 @@ function glazed_builder_update_8005() {
  */
 function glazed_builder_update_8006() {
   drupal_flush_all_caches();
+}
+
+/**
+ * Update config for glazed builder profiles.
+ */
+function glazed_builder_update_8007() {
+  // Remove default profile sidebar override.
+}
+
+/**
+ * Update config for glazed builder profiles.
+ */
+function glazed_builder_update_8008() {
+  $profiles = \Drupal::entityTypeManager()
+    ->getStorage('glazed_builder_profile')
+    ->loadMultiple();
+
+  foreach ($profiles as $profile) {
+    $profile->set('glazed_editor', TRUE);
+    $profile->save();
+  }
+}
+
+/**
+ * Fix 'mismatched entities' warning message.
+ *
+ * @see https://www.drupal.org/node/3034742
+ */
+function glazed_builder_update_8009() {
+  $entity_type = \Drupal::entityTypeManager()->getDefinition('glazed_builder_profile');
+  $entity_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $entity_update_manager->installEntityType($entity_type);
+}
+
+/**
+ * Сhange glazed_user_templates template field type to longtext.
+ */
+function glazed_builder_update_8010() {
+  $new_field = [
+    'type' => 'text',
+    'size' => 'big',
+    'not null' => FALSE,
+  ];
+  \Drupal::database()->schema()->changeField('glazed_user_templates', 'template', 'template', $new_field);
+}
+
+/**
+ * Clear cache for relative-absolute path conversion admin page.
+ */
+function glazed_builder_update_8011() {
+  drupal_flush_all_caches();
+}
+
+/**
+ * Update user template table.
+ */
+function glazed_builder_update_8012() {
+  $field_global_spec = [
+    'type' => 'int',
+    'description' => "Whether the template is global",
+    'size' => 'tiny',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ];
+
+  \Drupal::database()->schema()->addField('glazed_user_templates', 'global', $field_global_spec);
+  \Drupal::database()->schema()->addUniqueKey('glazed_user_templates', 'name', ['name']);
 }

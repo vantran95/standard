@@ -100,6 +100,11 @@ div.modal-dialog {
       left: 0;
     }
   }
+  &.ui-draggable {
+    .modal-header {
+      cursor: move;
+    }
+  }
   .modal-content {
     border-radius: 0;
     border: none;
@@ -109,6 +114,21 @@ div.modal-dialog {
     padding-top: 15px;
   }
   .modal-body {
+    border-left: 30px solid #f6f6fb;
+    position: relative;
+    min-height: 110px;
+    &:after {
+      content: ' ';
+      display: block;
+      position: absolute;
+      top: 50%;
+      left: -60px;
+      width: 90px;
+      height: 13px;
+      background: url("../images/sooperthemes.svg") no-repeat center center;
+      background-size: 90px;
+      transform: rotate(-90deg);
+    }
     .help-block,
     .help-inline {
       color: #bbb;

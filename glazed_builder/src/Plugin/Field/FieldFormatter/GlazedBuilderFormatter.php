@@ -194,15 +194,27 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
     $bundle = $this->fieldDefinition->get('bundle');
     $entity = $items->getEntity();
     $id = $entity->id();
+    $vid = $entity->getRevisionId();
     $field_name = $this->fieldDefinition->get('field_name');
     $entity_label = $entity->label();
 
-    foreach ($items as $delta => $item) {
-      $value = $item->value;
+    $enable_editor = $this->currentUser->hasPermission('edit via glazed builder') && $entity->access('update', $this->currentUser);
 
+    foreach ($items as $delta => $item) {
+      // Ignore initializing the builder at excluded pages and empty entities.
+      if ($item->getEntity()->id() == Null) {
+        continue;
+      }
+      $value = $item->value;
       $element[$delta] = [];
-      $human_readable = base64_encode(Html::escape($field_name . ' on ' . str_replace('node', 'page', $entity_type) . ' \'' . $entity_label . '\''));
-      $attrs = 'class="az-element az-container glazed" data-az-type="' . $entity_type . '|' . $bundle . '" data-az-name="' . $id . '|' . $field_name . '" data-az-human-readable="' . $human_readable . '"';
+      if ($item->getLangcode()) {
+        $langcode = $item->getLangcode();
+      }
+      else {
+        $langcode = $this->languageManager->getCurrentLanguage()->getId();
+      }
+      $human_readable = base64_encode(Html::escape($field_name . ' on ' . str_replace('node', 'page', $entity_type) . ' ' . $entity_label . ' '));
+      $attrs = 'class="az-element az-container glazed" data-az-type="' . $entity_type . '|' . $bundle . '" data-az-name="' . $id . '|' . $vid . '|' . $field_name . '" data-az-human-readable="' . $human_readable . '" data-az-langcode="' . $langcode . '"';
       preg_match('/^\s*\<[\s\S]*\>\s*$/', $value, $html_format);
 
       if (empty($html_format)) {
@@ -210,7 +222,7 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
         $mode = 'static';
       }
       else {
-        $response = $this->glazedBuilderService->updateHtml($value);
+        $response = $this->glazedBuilderService->updateHtml($value, $enable_editor);
         $output = $response['output'];
         $mode = $response['mode'];
         $libraries = $response['library'];
@@ -242,7 +254,6 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
 
       $element[$delta]['#markup'] = Markup::create($output);
       $element[$delta]['#id'] = $id. '|' . $field_name;
-      $enable_editor = $this->currentUser->hasPermission('edit via glazed builder') && $entity->access('update', $this->currentUser);
       // Attach Glazed Builder assets
       $this->attachAssets($element[$delta], $value, $html_format, $enable_editor, $mode, $this->languageManager->getCurrentLanguage()->getId());
     }
@@ -279,7 +290,6 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
    *   2 letter language code
    */
   function attachAssets(&$element, $content, $html_format, $enable_editor, $mode, $glazed_lang) {
-    $base_url = $this->getBaseUrl();
     $config = $this->configFactory->get('glazed_builder.settings');
 
     $settings = [];
@@ -289,12 +299,22 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
       $settings['glazedEditor'] = TRUE;
     }
 
+    if ($this->moduleHandler->moduleExists('glazed_builder_e')) {
+      $settings['enterprise']= TRUE;
+    }
+
     $url = Url::fromRoute('glazed_builder.ajax_callback');
     $token = $this->csrfToken->get($url->getInternalPath());
     $url->setOptions(['absolute' => TRUE, 'query' => ['token' => $token]]);
     $settings['glazedAjaxUrl'] = $url->toSTring();
+
+    $csrf_url = Url::fromRoute('glazed_builder.csrf_refresh');
+    $csrf_url->setOptions(['absolute' => TRUE]);
+    $settings['glazedCsrfUrl'] = $csrf_url->toSTring();
+
     $settings['glazedLanguage'] = $glazed_lang;
-    $settings['glazedBaseUrl'] = $base_url . base_path() . '/' . $this->getPath('module', 'glazed_builder') . '/glazed_builder/';
+    $settings['glazedBaseUrl'] = base_path() . $this->getPath('module', 'glazed_builder') . '/glazed_builder/';
+    $settings['glazedBasePath'] = base_path();
 
     $element['#attached']['library'][] = 'glazed_builder/core';
     if ($mode == 'dynamic') {
@@ -374,13 +394,6 @@ class GlazedBuilderFormatter extends FormatterBase implements ContainerFactoryPl
     }
 
     return $paths[$key];
-  }
-
-  /**
-   * Get the base URL of the current request
-   */
-  private function getBaseUrl() {
-    return $this->requestStack->getCurrentRequest()->getSchemeAndHttpHost();
   }
 
   /**

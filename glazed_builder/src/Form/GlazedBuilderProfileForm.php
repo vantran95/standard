@@ -5,6 +5,7 @@ namespace Drupal\glazed_builder\Form;
 use Drupal\Core\Entity\EntityForm;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\views\Views;
+use Drupal\Core\Cache\Cache;
 
 /**
  * Glazed Builder Profile form.
@@ -42,6 +43,18 @@ class GlazedBuilderProfileForm extends EntityForm {
       '#type' => 'checkbox',
       '#title' => $this->t('Enabled'),
       '#default_value' => $this->entity->status(),
+    ];
+
+    $form['sidebar'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Show snippet sidebar'),
+      '#default_value' => $this->entity->get('sidebar'),
+    ];
+
+    $form['glazed_editor'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Start Editor When Page Loads'),
+      '#default_value' => $this->entity->get('glazed_editor'),
     ];
 
     // $form['weight'] = [
@@ -84,6 +97,12 @@ class GlazedBuilderProfileForm extends EntityForm {
       '#type' => 'details',
       '#title' => $this->t('Blocks'),
     ];
+
+    $form['blocks_wrapper']['all_blocks'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Check/Uncheck all Blocks'),
+    ];
+
     $blacklist = [
       // These two blocks can only be configured in display variant plugin.
       // @see \Drupal\block\Plugin\DisplayVariant\BlockPageVariant
@@ -115,6 +134,12 @@ class GlazedBuilderProfileForm extends EntityForm {
       '#type' => 'details',
       '#title' => $this->t('Views'),
     ];
+
+    $form['views_wrapper']['all_views'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Check/Uncheck all Views'),
+    ];
+
     $views_elements = [];
     $views = Views::getAllViews();
     foreach ($views as $view) {
@@ -201,6 +226,9 @@ class GlazedBuilderProfileForm extends EntityForm {
       ? $this->t('Created new glazed builder profile %label.', $message_args)
       : $this->t('Updated glazed builder profile %label.', $message_args);
     $this->messenger()->addStatus($message);
+    // Invalidate cache tags.
+    $tags = Cache::mergeTags(['config:glazed_builder.settings'], $this->entity->getCacheTags());
+    Cache::invalidateTags($tags);
     $form_state->setRedirectUrl($this->entity->toUrl('collection'));
     return $result;
   }

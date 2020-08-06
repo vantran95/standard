@@ -1,8 +1,8 @@
-name: Glazed Drag and Drop Node Type
-description: Node Type with Glazed Builder Drag and Drop Editing
+name: Glazed Builder Drag and Drop Node Type
+description: Content type with Glazed Builder drag and drop solution
 core: 8.x
 type: module
-package: Glazed Builder
+package: Sooperthemes
 dependencies:
   - drupal:text
   - drupal:node

@@ -1,8 +1,8 @@
 name: Glazed Builder Block Type
-description: Custom Block Type with Glazed Builder Drag and Drop Editing.
+description: Block type with Glazed Builder drag and drop solution.
 core: 8.x
 type: module
-package: Glazed Builder
+package: Sooperthemes
 
 dependencies:
   - drupal:text

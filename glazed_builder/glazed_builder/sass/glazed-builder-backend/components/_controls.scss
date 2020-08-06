@@ -160,6 +160,12 @@
   .control:last-child {
     border-radius: 0;
   }
+  .glyphicon-ban-circle {
+    position: absolute;
+    left: 19%;
+    top: 14%;
+    font-size: 24px;
+  }
 }
 .az-container > .controls > .control:first-child {
   width: 41px;

@@ -58,6 +58,20 @@ class GlazedBuilderProfile extends ConfigEntityBase implements GlazedBuilderProf
   protected $status = TRUE;
 
   /**
+   * Glazed Editor state.
+   *
+   * @var bool
+   */
+  protected $glazed_editor = TRUE;
+
+  /**
+   * Show snippet sidebar.
+   *
+   * @var bool
+   */
+  protected $sidebar = FALSE;
+
+  /**
    * Profile weight.
    *
    * @var int

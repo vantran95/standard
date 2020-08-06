@@ -5,8 +5,12 @@ body, html {
 }
 
 // Filter views by tag
+// Filter blocks by type
 #az-elements-tabs .filter-tags {
   padding: 5px;
+  select {
+    padding-right: 25px;
+  }
   label {
     padding-right: 0.5em;
   }
