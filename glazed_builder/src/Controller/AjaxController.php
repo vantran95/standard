@@ -17,7 +17,6 @@ use Drupal\Core\Render\HtmlResponse;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\glazed_builder\Service\GlazedBuilderServiceInterface;
 use Drupal\glazed_builder\Service\UploadHandler;
-use Drupal\media\Entity\Media;
 use Drupal\file\Entity\File;
 use Drupal\image\Entity\ImageStyle;
 use Drupal\views\Views;
@@ -75,7 +74,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    *
    * @var \Drupal\Core\Asset\AssetResolverInterface
    */
-   protected $assetResolver;
+  protected $assetResolver;
 
   /**
    * The CSS asset collection renderer
@@ -370,7 +369,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
           $fileIds = $_POST['fileIds'];
           $imageStyle = $_POST['imageStyle'];
 
-          return new HtmlResponse($this->getMediaUrl($fileIds, $imageStyle));
+          return new HtmlResponse($this->getImageUrl($fileIds, $imageStyle));
         }
 
         break;
@@ -382,7 +381,7 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
    */
   public function fileUpload() {
     $upload_handler = new UploadHandler(array(
-        'accept_file_types' => '/\.(gif|jpe?g|png)$/i'
+      'accept_file_types' => '/\.(gif|jpe?g|png)$/i'
     ));
 
     return new Response('');
@@ -743,31 +742,6 @@ class AjaxController extends ControllerBase implements AjaxControllerInterface {
     $images = [];
     foreach ($fileIds as $fid) {
       $file = \Drupal\file\Entity\File::load($fid);
-      if ($imageStyle && $imageStyle != 'original') {
-        $images[] = ImageStyle::load($imageStyle)->buildUrl($file->getFileUri());
-      }
-      else {
-        $images[] = file_create_url($file->getFileUri());
-      }
-    }
-
-    return implode(',', $images);
-  }
-
-  /**
-   * Creates image url from media ID
-   *
-   * @param string $templateName
-   *   The name of the template to be loaded
-   *
-   * @return Symfony\Component\HttpFoundation\JsonResponse
-   */
-  private function getMediaUrl($fileIds, $imageStyle) {
-    $images = [];
-    foreach ($fileIds as $mid) {
-      $media = Media::load($mid);
-      $fid = $media->getSource()->getSourceFieldValue($media);
-      $file = File::load($fid);
       if ($imageStyle && $imageStyle != 'original') {
         $images[] = ImageStyle::load($imageStyle)->buildUrl($file->getFileUri());
       }
